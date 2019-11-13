@@ -1,14 +1,17 @@
 package com.example
 
+import com.example.models.UploadUrls
+import com.example.services.PictureDownloader
+import com.example.utils.serverUrl
 import com.fasterxml.jackson.databind.SerializationFeature
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.ktor.application.Application
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.client.HttpClient
-import io.ktor.client.request.get
 import io.ktor.features.ContentNegotiation
 import io.ktor.http.ContentType
+import io.ktor.http.content.files
+import io.ktor.http.content.static
 import io.ktor.jackson.jackson
 import io.ktor.locations.Locations
 import io.ktor.request.receive
@@ -17,8 +20,6 @@ import io.ktor.response.respondText
 import io.ktor.routing.get
 import io.ktor.routing.post
 import io.ktor.routing.routing
-import java.io.File
-import java.util.*
 
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
 
@@ -42,42 +43,24 @@ fun Application.module(testing: Boolean = false) {
             call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
         }
 
-        get("/json/jackson") {
-            call.respond(mapOf("hello" to "world"))
+        static("pics") {
+            files("pics")
         }
+
         post("/upload") {
             print("oh")
-            val urls2: String = call.receive()
-            val urls = jacksonObjectMapper().readValue(urls2, UploadUrls::class.java)
+            val urls = call.receive<UploadUrls>()
+            val res = PictureDownloader(client).download(urls)
 
-            urls.urls.forEach {
-                val img = client.get<ByteArray>(it)
-                val imgFile = File(UUID.randomUUID().toString())
-                imgFile.writeBytes(img)
-            }
+            val nr = res.map {
+                val url = call.request.serverUrl()
+                url.encodedPath = it
+                url.buildString()
+            }.toList()
+            call.respond(nr)
         }
 
-//        get<MyLocation> {
-//            call.respondText("Location: name=${it.name}, arg1=${it.arg1}, arg2=${it.arg2}")
-//        }
-//        // Register nested routes
-//        get<Type.Edit> {
-//            call.respondText("Inside $it")
-//        }
-//        get<Type.List> {
-//            call.respondText("Inside $it")
-//        }
     }
 }
 
-//@Location("/location/{name}")
-//class MyLocation(val name: String, val arg1: Int = 42, val arg2: String = "default")
-//
-//@Location("/type/{name}") data class Type(val name: String) {
-//    @Location("/edit")
-//    data class Edit(val type: Type)
-//
-//    @Location("/list/{page}")
-//    data class List(val type: Type, val page: Int)
-//}
 
